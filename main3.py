@@ -95,7 +95,7 @@ def delete_rows(tank_ID):
     creds = ServiceAccountCredentials.from_json_keyfile_name('calcium-task-481709-t1-5c1f9c5b1842.json', scope)
     # クライアントの作成
     client = gspread.authorize(creds)
-    spreadsheet = client.open('haieki_test')
+    spreadsheet = client.open('廃液管理（回答）')
     worksheet = spreadsheet.sheet1
     data = worksheet.get_all_values()
     #data[n][4]が投入イベントの廃液タンク番号
@@ -115,6 +115,8 @@ tankIDlist = []
 #関数実行部 時々タコるので関数を外した
 while True:
     tank_disposing = input("伝票を作成するタンクを記号で指定 なければEnter: ")
+    molarity_subs = []
+    CASnum = []
     if tank_disposing == "K学" or (tank_disposing.isascii() and len(tank_disposing) > 1):
         tankIDlist.append(tank_disposing)
         event = [i for i, tank_num in enumerate(df_ans[tank]) if tank_num == tank_disposing]
@@ -139,16 +141,21 @@ while True:
                     sub.append(df_ans[q_list[7*j+6]][i])
                     sub.append("")
                 elif df_ans[q_list[7*j+2]][i] == mol:
-                    # モル濃度の場合
+                    # モル濃度の場合→CAS番を入力させて格納
                     sub.append("mol")
                     sub.append(df_ans[q_list[7*j+5]][i])
                     sub.append(df_ans[q_list[7*j+6]][i])
-                    while True:
-                        CAS = input(str(df_ans[q_list[7*j+1]][i]) + " のCAS番号? : ")
-                        if re.fullmatch(r'\d+-\d+-\d+', CAS) is None:
-                            continue
-                        else:
-                            break
+                    if df_ans[q_list[7*j+1]][i] in molarity_subs:
+                        CAS = CASnum[molarity_subs.index(df_ans[q_list[7*j+1]][i])]
+                    else:
+                        while True:
+                            CAS = input(str(df_ans[q_list[7*j+1]][i]) + " のCAS番号? : ")
+                            if re.fullmatch(r'\d+-\d+-\d+', CAS) is None:
+                                continue
+                            else:
+                                molarity_subs.append(df_ans[q_list[7*j+1]][i])
+                                CASnum.append(CAS)
+                                break
                     sub.append(CAS)
                 sub_list.append(sub)
                 if df_ans[q_list[7*j+4]][i] == Y or df_ans[q_list[7*j+7]][i] == Y:
@@ -242,13 +249,16 @@ while True:
         print("UTCIMSで読み込むためのcsvファイルを作成します...")
         export = open(tank_disposing + "_export.csv", 'w', encoding = 'UTF-8-sig')
         export.write("SourceType,CASRN,Substance,Mass\n")
+        nameEN = [] # 入ってたascii名と入力した日本語名を一緒に記録
+        nameJP = []
         for i in range(len(df_disp)):
-            nameEN = [] # 入ってたascii名と入力した日本語名を一緒に記録
-            nameJP = []
             if df_disp["subs"][i].isascii():
-                nameEN.append(df_disp["subs"][i])
-                JPname = input(df_disp["subs"][i] + " 日本語名を入力: ")
-                nameJP.append(JPname)
+                if df_disp["subs"][i] in nameEN:
+                    JPname = nameJP[nameEN.index(df_disp["subs"][i])]
+                else:
+                    nameEN.append(df_disp["subs"][i])
+                    JPname = input(df_disp["subs"][i] + " 日本語名を入力: ")
+                    nameJP.append(JPname)
                 df_disp.loc[i, "subs"] = JPname
             if df_disp["way"][i] == "mol":
                 try:
